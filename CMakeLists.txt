@@ -24,7 +24,7 @@
 ################################################################################
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
-project(async-timeout)
+project(async_timeout)
 
 if(NOT DEFINED PACKAGE_VENDOR)
     set(PACKAGE_VENDOR NextGIS)
@@ -104,8 +104,6 @@ else()
     set(FLAGS "NextGIS=TRUE")
 endif()
 
-set(BUILD_INCLUDES ${BUILD_INCLUDES} -q)
-
 # Download tarbal
 set(OUT_DIR_NAME ${PROJECT_NAME}-${VERSION})
 set(OUT_NAME "${OUT_DIR_NAME}.tar.gz")
@@ -123,72 +121,9 @@ if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME})
     execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf ${CMAKE_CURRENT_BINARY_DIR}/${OUT_NAME})
 endif()
 
-macro(build_py)
-    status_message("Configuring ...")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E env "${FLAGS}"
-        ${PYTHON_EXECUTABLE} setup.py build ${BUILD_INCLUDES}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME}
-        OUTPUT_QUIET ERROR_QUIET
-    )
-
-    add_custom_target(build_py ALL
-        COMMAND ${CMAKE_COMMAND} -E env "${FLAGS}"
-        ${PYTHON_EXECUTABLE} setup.py build_ext ${BUILD_INCLUDES}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME}
-        VERBATIM
-    )
-
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set(SETUP_OPTS ${SETUP_OPTS} --no-compile --single-version-externally-managed --record=rekord.txt --prefix=${CMAKE_CURRENT_BINARY_DIR}/inst_tmp)
-    elseif(WIN32)
-        string(REPLACE "/" "\\\\" TMP_PATH "${CMAKE_CURRENT_BINARY_DIR}/inst_tmp")
-        set(SETUP_OPTS ${SETUP_OPTS} --no-compile --single-version-externally-managed --record=rekord.txt --prefix=${TMP_PATH})
-    else()
-        execute_process ( COMMAND ${PYTHON_EXECUTABLE} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())" OUTPUT_VARIABLE PY_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-        set(TEST_CMD "try:
-    import setuptools
-    print(1)
-except ImportError:
-    pass")
-
-        execute_process ( COMMAND ${PYTHON_EXECUTABLE} -c ${TEST_CMD} OUTPUT_VARIABLE PY_HAVE_SETUPTOOLS OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if(PY_HAVE_SETUPTOOLS)
-            set(SETUP_OPTS "${SETUP_OPTS} --no-compile --single-version-externally-managed --record=rekord.txt")
-        endif()
-
-        string( LENGTH "$ENV{DESTDIR}" DESTDIRLEN )
-        if ( ${DESTDIRLEN} GREATER 0 )
-            set(SETUP_OPTS "${SETUP_OPTS} --root=$ENV{DESTDIR}")
-        elseif(PYTHON_DESTDIR)
-            set(SETUP_OPTS "${SETUP_OPTS} --root=${PYTHON_DESTDIR}")
-        endif()
-
-        # check debian
-        string(FIND ${PY_SITE_PACKAGES} "dist-packages" PY_DIST_POS)
-        if(${PY_DIST_POS} GREATER -1)
-            set(SETUP_OPTS "${SETUP_OPTS} --install-layout=deb")
-        endif()
-
-        # TODO: do we need --install-lib=$(PYTHON_INSTALL_LIB) ?
-
-        set(SETUP_OPTS "${SETUP_OPTS} --prefix=${CMAKE_CURRENT_BINARY_DIR}/inst_tmp")
-
-    endif()
-    add_custom_target(install_py ALL
-        COMMAND ${CMAKE_COMMAND} -E env "${FLAGS}"
-        ${PYTHON_EXECUTABLE} setup.py install ${SETUP_OPTS}
-        DEPENDS build_py
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME}
-        VERBATIM
-    )
-endmacro()
-
-
-build_py()
-
-if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL )
-    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/inst_tmp/ DESTINATION ${INSTALL_LIB_DIR})
+if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME}/${PROJECT_NAME} DESTINATION ${INSTALL_LIB_DIR})
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${OUT_DIR_NAME}/${PROJECT_NAME}.egg-info DESTINATION ${INSTALL_LIB_DIR})
 endif()
 
 # Archiving ====================================================================
